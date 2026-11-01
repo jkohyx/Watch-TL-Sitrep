@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Woodlands Sitrep Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e7ebef; --panel:#ffffff; --ink:#15202b; --muted:#5d6b78; --line:#ccd4dc;
+  --field:#f4f6f8; --arr:#1f7a3a; --dep:#d2690a; --accent:#1d4e89; --accent-ink:#ffffff;
+  --warn:#b42318; --warn-bg:#fde8e6; --out:#0f1c2a; --out-ink:#dbe8f3; --out-dim:#7f95aa;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e141a; --panel:#16202a; --ink:#e3e9ef; --muted:#93a3b2; --line:#2a3744;
+    --field:#101820; --arr:#5cc97f; --dep:#ff9f45; --accent:#6ea3e0; --accent-ink:#0b1622;
+    --warn:#ff7b72; --warn-bg:#3a1a18; --out:#070c11; --out-ink:#d3e3f0; --out-dim:#6b8196;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e141a; --panel:#16202a; --ink:#e3e9ef; --muted:#93a3b2; --line:#2a3744;
+  --field:#101820; --arr:#5cc97f; --dep:#ff9f45; --accent:#6ea3e0; --accent-ink:#0b1622;
+  --warn:#ff7b72; --warn-bg:#3a1a18; --out:#070c11; --out-ink:#d3e3f0; --out-dim:#6b8196;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.4}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{padding:20px 16px 8px;max-width:1280px;margin:0 auto}
+.top h1{font-family:"Barlow Condensed","Barlow",sans-serif;font-weight:700;font-size:30px;line-height:1.05;margin:0 0 4px;letter-spacing:.2px}
+.top p{margin:0;color:var(--muted);font-size:15px}
+
+.wrap{max-width:1280px;margin:0 auto;padding:8px 16px 110px;display:grid;gap:20px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:1000px){.wrap{grid-template-columns:minmax(0,1fr) 520px;align-items:start}.outcol{position:sticky;top:calc(16px + env(safe-area-inset-top,0px))}}
+
+.meta{display:flex;flex-wrap:wrap;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.meta label{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted);font-weight:500}
+.meta input{background:var(--field);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+.meta .time{display:flex;gap:6px}
+.meta .time input{width:86px;font-family:"JetBrains Mono",ui-monospace,monospace}
+.meta select{background:var(--field);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:8px 12px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.meta .actions{display:flex;gap:8px;align-items:flex-end;margin-left:auto;flex-wrap:wrap}
+
+.side{margin-top:20px}
+.side h2{font-family:"Barlow Condensed","Barlow",sans-serif;font-size:24px;margin:0 0 10px;display:flex;align-items:center;gap:10px}
+.side h2::before{content:"";width:6px;height:22px;border-radius:2px;background:var(--c)}
+.side.arr{--c:var(--arr)} .side.dep{--c:var(--dep)}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+
+.sec{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:8px;padding:12px 14px 14px}
+.sec header{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px}
+.sec h3{margin:0;font-size:18px;font-weight:700}
+.tot{font-size:14px;color:var(--muted);font-weight:600;text-align:right}
+.tot b{color:var(--ink);font-size:16px}
+.tot.bad b,.tot .bad{color:var(--warn)}
+.cond{display:grid;grid-template-columns:1fr 92px;gap:8px;margin-bottom:10px}
+.cond.hall{grid-template-columns:1fr}
+.cond label,.fld{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--muted);font-weight:500}
+.cond select,.cond input,.fld input{background:var(--field);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+.cond .custom{grid-column:1/-1}
+.cond .hint{grid-column:1/-1;margin:0;font-size:13px;color:var(--muted)}
+.cond .hint.warnt{color:var(--warn);font-weight:600}
+.cond input[readonly]{cursor:default;border-style:dashed}
+.toggles{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tog{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--field);border-radius:999px;padding:5px 12px 5px 5px;cursor:pointer;font-weight:600;font-size:14px}
+.tog .sw{position:relative;width:32px;height:18px;border-radius:999px;background:var(--line);flex:none}
+.tog .sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s}
+.tog[aria-pressed="true"] .sw{background:var(--c)}
+.tog[aria-pressed="true"] .sw::after{left:16px}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.inp{display:flex;align-items:center;gap:6px}
+.inp input{font-family:"JetBrains Mono",ui-monospace,monospace;text-align:right;font-size:15px}
+.inp em{font-style:normal;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px;color:var(--muted);white-space:nowrap;min-width:34px}
+.fld input.over{border-color:var(--warn);background:var(--warn-bg)}
+
+.fixed{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:12px 14px;color:var(--muted);font-size:14px}
+
+details.settings{margin-top:20px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+details.settings summary{cursor:pointer;font-weight:700}
+details.settings p{color:var(--muted);font-size:14px;margin:8px 0}
+.maprow{display:grid;grid-template-columns:1fr 90px auto;gap:8px;margin-bottom:8px;align-items:center}
+.maprow input{background:var(--field);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0}
+
+.out{background:var(--out);border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.out header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;color:var(--out-dim);font-size:14px;gap:8px}
+.out header strong{color:var(--out-ink);font-weight:600}
+.out textarea{display:block;width:100%;min-height:520px;resize:vertical;border:0;background:transparent;color:var(--out-ink);font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.55;padding:4px 14px 16px;white-space:pre-wrap;word-break:break-word}
+.out textarea:focus{outline:none}
+.status{font-size:13px;color:var(--out-dim);min-height:1em}
+
+.fab{position:fixed;left:0;right:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--panel);border-top:1px solid var(--line);display:flex;gap:10px;justify-content:center;z-index:5}
+.fab .btn{flex:1;max-width:420px;padding:12px}
+@media (min-width:1000px){.fab{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Woodlands Command sitrep</h1>
+  <p>Fill in the counters and traffic conditions. Totals and LWT are worked out for you, and the sitrep text updates as you type.</p>
+</div>
+
+<main class="wrap">
+  <div>
+    <div class="meta">
+      <label>Shift
+        <select id="shift"><option value="am">Morning shift</option><option value="pm">Night shift</option></select>
+      </label>
+      <label>Time
+        <select id="time"></select>
+      </label>
+      <label>Date <input id="date" type="date"></label>
+      <div class="actions">
+        <button class="btn" id="clear" type="button">Clear counters</button>
+        <button class="btn" id="smooth" type="button">All smooth</button>
+      </div>
+    </div>
+
+    <section class="side arr"><h2>Arrival</h2><div class="grid" id="arr"></div></section>
+    <section class="side dep"><h2>Departure</h2><div class="grid" id="dep"></div></section>
+    <p class="fixed" style="margin-top:16px">Train lines stay fixed: Manual 2 / 9, Eiacs 3 / 3, Train Kiosk 10 / 10, Total Automated 13.</p>
+
+  </div>
+
+  <div class="outcol">
+    <div class="out">
+      <header><strong>Sitrep text</strong><span class="status" id="status"></span><button class="btn primary" id="copy" type="button">Copy sitrep</button></header>
+      <textarea id="out" readonly spellcheck="false" aria-label="Generated sitrep"></textarea>
+    </div>
+  </div>
+</main>
+
+<div class="fab"><button class="btn primary" id="copy2" type="button">Copy sitrep</button></div>
+
+<script>
+(function(){
+const KEY='woodlands-sitrep-v1';
+const Z=[['z1','Z1'],['z2','Z2'],['z3','Z3'],['z4','Z4']];
+const SECTIONS={
+  arr:[
+    {id:'aCargo',title:'Cargo',kind:'road',fields:[['ccc','CCC',6],['owc','OWC',4]]},
+    {id:'aCar',title:'Car',kind:'road',zones:40,fields:[...Z,['cargo','Arr Car-go',6],['owcac','OWC AC',20]]},
+    {id:'aMc',title:'MC',kind:'road',fields:[['manual','Manual',2],['ommManual','OMM Manual',1],['bikes1','(Bikes1)',18],['bikes2','(Bikes2)',10],['omm','OMM',19]]},
+    {id:'aHall',title:'Bus Hall',kind:'hall',fields:[['a','IACS(A)',9],['b','ABCS(B)',8],['c','ABCS(C)',12],['d','ABCS(D)',10]]},
+    {id:'aLane',title:'Bus Lane',kind:'road',lane:true,fields:[['lane','Counters',5]]}
+  ],
+  dep:[
+    {id:'dCargo',title:'Cargo',kind:'road',fields:[['dlsc','DLSC',6],['owc','OWC',4]]},
+    {id:'dCar',title:'Car',kind:'road',zones:36,fields:[...Z,['cargo','Dep Car-Go',6]]},
+    {id:'dMc',title:'MC',kind:'road',fields:[['manual','Manual',2],['auto','Automated',19],['bam','B@M',null]]},
+    {id:'dHall',title:'Bus Hall',kind:'hall',fields:[['a','IACS(A)',9],['b','ABCS(B)',8],['c','ABCS(C)',12],['d','ABCS(D)',10],['bac','B@C',15]]},
+    {id:'dLane',title:'Bus Lane',kind:'road',lane:true,fields:[['bac','B@C',null],['lane','Counters',5]]}
+  ]
+};
+const ALL=[...SECTIONS.arr,...SECTIONS.dep];
+const BYID=Object.fromEntries(ALL.map(s=>[s.id,s]));
+const HALL_CONDS=['Smooth','Within Railing','Half Hall'];
+const LANDMARKS=['G3','G2','G1','LP 2','LP 3','LP 4','LP 5','LP 6','LP 7','IB','BIB 1','BIB 2','BIB 3','MTL 1','MTL 2','BSI EXIT'];
+const LABELS={'G3':'G3 (140m)','G2':'G2 (230m)','G1':'G1 (280m)','LP 2':'LP 2 (310m)','LP 3':'LP 3 (330m)','LP 4':'LP 4 (390m)','LP 5':'LP 5 (470m)','LP 6':'LP 6 (550m)','LP 7':'LP 7 (630m)','IB':'IB (710m)','BIB 1':'BIB 1 (1030m)','BIB 2':'BIB 2 (1180m)','BIB 3':'BIB 3 (1390m)','MTL 1':'MTL 1 (1710m)','MTL 2':'MTL 2 (1780m)','BSI EXIT':'BSI EXIT (1990m)'};
+// Arrival car LWT (mins): lanes open -> [G3,G2,G1,LP2,LP3,LP4,LP5,LP6]
+const ARR_CAR_LWT={
+10:[6,10,13,14,15,18,21,25],11:[6,9,11,13,14,16,19,23],12:[5,9,11,12,12,15,18,21],13:[5,8,10,11,11,14,16,19],
+14:[5,7,9,10,11,13,15,18],15:[4,7,8,9,10,12,14,17],16:[4,6,8,9,9,11,13,15],17:[4,6,7,8,9,10,12,15],
+18:[4,6,7,8,8,10,12,14],19:[3,5,7,7,8,9,11,13],20:[3,5,6,7,7,9,11,12],21:[3,5,6,7,7,8,10,12],
+22:[3,5,6,6,7,8,10,11],23:[3,5,5,6,6,8,9,11],24:[3,4,5,6,6,7,9,10],25:[3,4,5,6,6,7,8,10],
+26:[2,4,5,5,6,7,8,10],27:[2,4,5,5,6,7,8,9],28:[2,4,5,5,5,6,8,9],29:[2,4,4,5,5,6,7,9],
+30:[2,3,4,5,5,6,7,8],31:[2,3,4,5,5,6,7,8],32:[2,3,4,4,5,5,7,8],33:[2,3,4,4,5,5,6,8],
+34:[2,3,4,4,4,5,6,7],35:[2,3,4,4,4,5,6,7],36:[2,3,4,4,4,5,6,7],37:[2,3,3,4,4,5,6,7],
+38:[2,3,3,4,4,5,6,7],39:[2,3,3,4,4,5,5,6],40:[2,3,3,3,4,4,5,6]};
+// Far landmarks: lanes open -> [LP7,IB,BIB1,BIB2,BIB3,MTL1,MTL2,BSI EXIT]
+const ARR_CAR_LWT_FAR={
+10:[28,32,46,53,63,77,80,90],11:[26,29,42,48,57,70,73,81],12:[24,27,39,44,52,64,67,75],13:[22,25,36,41,48,59,62,69],
+14:[20,23,33,38,45,55,57,64],15:[19,21,31,35,42,51,53,60],16:[18,20,29,33,39,48,50,56],17:[17,19,27,31,37,45,47,53],
+18:[16,18,26,30,35,43,45,50],19:[15,17,24,28,33,41,42,47],20:[14,16,23,27,31,38,40,45],21:[14,15,22,25,30,37,38,43],
+22:[13,15,21,24,28,35,36,41],23:[12,14,20,23,27,33,35,39],24:[12,13,19,22,26,32,33,37],25:[11,13,19,21,25,31,32,36],
+26:[11,12,18,20,24,30,31,34],27:[11,12,17,20,23,29,30,33],28:[10,11,17,19,22,27,29,32],29:[10,11,16,18,22,27,28,31],
+30:[9,11,15,18,21,26,27,30],31:[9,10,15,17,20,25,26,29],32:[9,10,14,17,20,24,25,28],33:[9,10,14,16,19,23,24,27],
+34:[8,9,14,16,18,23,24,26],35:[8,9,13,15,18,22,23,26],36:[8,9,13,15,17,21,22,25],37:[8,9,13,14,17,21,22,24],
+38:[7,8,12,14,16,20,21,24],39:[7,8,12,14,16,20,21,23],40:[7,8,12,13,16,19,20,22]};
+Object.keys(ARR_CAR_LWT_FAR).forEach(k=>{ARR_CAR_LWT[k]=ARR_CAR_LWT[k].concat(ARR_CAR_LWT_FAR[k])});
+// Arrival MC LWT (mins): total MC counters incl. bikes, row applies when count < limit
+const MC_LANDMARKS=['Smooth','Holding Area','G2','G1','LP1','LP2','LP3','LP4','LP5','LP6','LP7','IB'];
+// each option -> column in ARR_MC_LWT (split landmarks share their combined column)
+const MC_COL=[0,1,2,3,4,4,5,5,6,6,7,7];
+const ARR_MC_LWT=[
+[25,[2,25,35,45,52,59,66,89]],
+[33,[2,20,30,40,47,54,61,84]],
+[43,[2,15,23,40,36,41,47,65]],
+[53,[2,13,19,40,30,34,39,54]],
+[63,[2,11,16,40,25,28,33,46]],
+[73,[2,11,14,40,22,25,29,41]],
+[81,[2,11,13,40,20,23,26,37]]];
+// Arrival Bus LWT (mins): bus lane counters 1-5
+const BUS_LANDMARKS=['Smooth','G2','G1','LP1','LP2','LP3','LP4','LP5','LP6','LP7','IB','Beyond IB','MTL'];
+// each option -> column in ARR_BUS_LWT (split landmarks share their combined column)
+const BUS_COL=[0,1,2,3,3,4,4,5,5,6,6,7,7];
+const ARR_BUS_LWT={
+1:[2,29,39,45,51,58,81,104],
+2:[2,25,29,34,39,44,50,60],
+3:[2,22,26,30,34,39,45,55],
+4:[2,20,24,26,30,34,40,44],
+5:[2,18,24,26,28,30,35,42]};
+// Arrival Lorry (Cargo) LWT (mins): row = largest listed counter count not above CCC+OWC total; 9 means >8
+const LORRY_LANDMARKS=['Smooth','G2','LP1','LP2','LP3','LP4','LP5','LP6','LP7','IB','BIB (1)','BIB (2)','BIB (3)','MTL 1','BSI'];
+// each option -> column in ARR_LORRY_LWT (split landmarks share their combined column)
+const LORRY_COL=[0,1,2,2,3,3,4,4,4,4,5,6,7,8,9];
+// [position, group size] for split landmarks: first takes the low number, last takes the high number, middle ones are spaced evenly
+// BIB (1)-(3) take the lower number of their range
+const LORRY_PART=[null,null,[0,2],[1,2],[0,2],[1,2],[0,4],[1,4],[2,4],[3,4],[0,2],[0,2],[0,2],null,null];
+function splitRange(v,part){v=String(v);if(!part||v.indexOf('-')<0)return v;const[a,b]=v.split('-').map(Number);return String(Math.round(a+(b-a)*part[0]/(part[1]-1)))}
+const ARR_LORRY_LWT=[
+[1,['2','2','40-56','57-64','64-65','65-72','73-90','90-125','133','165']],
+[2,['2','2','18-24','28-34','40-45','46-50','57-60','62-68','70','90']],
+[4,['2','2','16-18','20-24','26-30','34-38','44','50','65','80']],
+[6,['2','2','15-16','18-20','22-28','30-34','40','48','55','70']],
+[9,['2','2','14-16','15-18','20-22','24-28','35','40','50','60']]];
+// Departure Car LWT (mins): lanes (Z1-Z4) -> [G3,G2, then N,EP,SP for WX,BEYOND WX,BKE,ROAD SIGNAGE,BLUE GANTRY,EXIT 10A,START OF SLE,BEYOND EXIT 8]
+const DCAR_LANDMARKS=['G3','G2','WX','BEYOND WX','BKE','ROAD SIGNAGE','BLUE GANTRY','EXIT 10A','START OF SLE','BEYOND EXIT 8'];
+const DCAR_LABELS={'G3':'G3 (125m)','G2':'G2 (220m)','WX':'WX (500m)','BEYOND WX':'BEYOND WX (570m)','BKE':'BKE (900m)','ROAD SIGNAGE':'ROAD SIGNAGE (1200m)','BLUE GANTRY':'BLUE GANTRY (1390m)','EXIT 10A':'EXIT 10A (1830m)','START OF SLE':'START OF SLE (2430m)','BEYOND EXIT 8':'BEYOND EXIT 8 (3180m)'};
+const DEP_CAR_LWT={
+10:[3,6,28,27,42,32,31,48,50,49,75,65,64,97,73,72,109,100,99,150,133,131,198,174,172,260],
+11:[3,5,26,25,38,29,28,43,46,44,68,59,58,88,67,65,99,91,90,136,121,119,180,158,156,236],
+12:[3,5,23,23,35,27,26,40,42,41,62,54,53,81,61,60,91,84,82,125,111,109,165,145,143,216],
+13:[3,5,22,21,32,25,24,37,39,37,57,50,49,75,56,55,84,77,76,115,102,101,153,134,132,200],
+14:[2,4,20,19,30,23,22,34,36,35,53,47,46,69,52,51,78,72,71,107,95,94,142,124,123,186],
+15:[2,4,19,18,28,21,21,32,33,32,50,44,42,65,49,48,73,67,66,100,89,87,132,116,114,173],
+16:[2,4,18,17,26,20,19,30,31,30,47,41,40,61,46,45,68,63,62,94,83,82,124,109,107,162],
+17:[2,3,17,16,24,19,18,28,30,29,44,38,37,57,43,42,64,59,58,88,78,77,117,102,101,153],
+18:[2,3,16,15,23,18,17,26,28,27,41,36,35,54,41,40,61,56,55,83,74,73,110,97,95,144],
+19:[2,3,15,14,22,17,16,25,26,26,39,34,34,51,39,38,58,53,52,79,70,69,104,92,90,137],
+20:[2,3,14,14,21,16,15,24,25,24,37,33,32,49,37,36,55,50,49,75,66,66,99,87,86,130],
+21:[2,3,13,13,20,15,15,23,24,23,35,31,30,46,35,34,52,48,47,71,63,62,95,83,82,124],
+22:[2,3,13,12,19,15,14,22,23,22,34,30,29,44,33,33,50,46,45,68,60,60,90,79,78,118],
+23:[1,3,12,12,18,14,13,21,22,21,32,28,28,42,32,31,48,44,43,65,58,57,86,76,75,113],
+24:[1,2,12,11,17,13,13,20,21,20,31,27,27,41,31,30,46,42,41,62,55,55,83,72,72,108],
+25:[1,2,11,11,17,13,12,19,20,19,30,26,25,39,29,29,44,40,40,60,53,52,79,70,69,104],
+26:[1,2,11,10,16,12,12,18,19,19,29,25,25,37,28,28,42,39,38,58,51,50,76,67,66,100],
+27:[1,2,10,10,15,12,11,18,19,18,28,24,24,36,27,27,41,37,37,56,49,49,74,64,64,96],
+28:[1,2,10,10,15,11,11,17,18,17,27,23,23,35,26,26,39,36,35,54,47,47,71,62,61,93],
+29:[1,2,10,9,14,11,11,16,17,17,26,23,22,34,25,25,38,35,34,52,46,45,68,60,59,90],
+30:[1,2,9,9,14,11,10,16,17,16,25,22,21,32,24,24,36,33,33,50,44,44,66,58,57,87],
+31:[1,2,9,9,13,10,10,15,16,16,24,21,21,31,24,23,35,32,32,48,43,42,64,56,55,84],
+32:[1,2,9,8,13,10,10,15,16,15,23,20,20,30,23,22,34,31,31,47,42,41,62,54,54,81],
+33:[1,2,9,8,13,10,9,14,15,15,23,20,19,29,22,22,33,30,30,45,40,40,60,53,52,79],
+34:[1,2,8,8,12,9,9,14,15,14,22,19,19,29,22,21,32,30,29,44,39,39,58,51,51,76],
+35:[1,2,8,8,12,9,9,14,14,14,21,19,18,28,21,21,31,29,28,43,38,37,57,50,49,74],
+36:[1,2,8,8,12,9,9,13,14,14,21,18,18,27,20,20,30,28,27,42,37,36,55,48,48,72]};
+// Departure MC LWT (mins): MC total incl. bikes -> row [min,max,label,values]
+const DMC_LANDMARKS=['Smooth','G3','G2','LP1','LP2','LP3','LP4','LP5','LP6','LP7','LP8','LP9','LP10','LP11','LP12','LP13','LP14','LP15','LP16','LP17','BKE'];
+const DEP_MC_LWT=[
+[0,29,'29',[2,11,22,28,35,36,40,41,45,46,50,51,55,56,60,61,65,66,70,75,90]],
+[30,31,'<32',[2,11,18,21,30,25,33,28,36,32,38,33,42,37,44,40,54,55,60,65,65]],
+[32,36,'>32',[2,11,17,20,22,23,25,26,28,29,30,31,32,33,34,36,47,48,55,63,63]],
+[37,37,'37',[2,11,16,19,20,21,23,24,26,27,29,30,31,32,35,35,44,45,52,60,60]],
+[38,42,'>37',[2,11,15,18,19,20,22,23,24,25,26,27,29,30,31,33,42,43,48,55,55]],
+[43,46,'>42',[2,13,14,16,18,19,21,22,23,24,25,27,28,29,30,31,38,42,50,52,52]],
+[47,47,'47',[2,12,14,16,16,18,18,20,20,23,28,29,32,33,36,38,40,40,44,45,45]],
+[48,56,'>47',[2,11,13,15,15,17,17,19,19,22,22,24,24,26,26,28,28,35,35,40,40]],
+[57,999,'57',[2,11,13,14,14,16,16,18,18,20,20,22,22,24,24,26,26,30,30,35,35]]];
+// Departure Lorry (Cargo) LWT (mins): row = largest listed counter count not above DLSC+OWC total; 9 means >8
+const DLORRY_LANDMARKS=['Smooth','G2','WX','OWR'];
+const DEP_LORRY_LWT=[
+[1,['2','27','42','102']],
+[2,['2','22','35','50-65']],
+[4,['2','18','28','38-50']],
+[6,['2','15','20','30-45']],
+[9,['2','13','18','27-42']]];
+// Departure Bus LWT (mins): bus lane counters 1-5
+const DBUS_LANDMARKS=['Smooth','G2','WX','Beyond WX','BKE'];
+const DEP_BUS_LWT={
+1:[2,32,56,77,99],
+2:[2,23,40,55,70],
+3:[2,18,32,43,54],
+4:[2,16,30,42,52],
+5:[2,14,28,40,50]};
+const DEFAULT_MAP=[{c:'Smooth',l:'2'},{c:'BKE',l:'17'}];
+const EXAMPLE={
+  aCargo:{cond:'Smooth',lwt:'2',f:{ccc:'3',owc:''}},
+  aCar:{cond:'Smooth',lwt:'2',f:{z1:'10',z2:'9',z3:'9',z4:'9',cargo:'',owcac:''}},
+  aMc:{cond:'Smooth',lwt:'2',f:{manual:'2',ommManual:'0',bikes1:'18',bikes2:'0',omm:'0'}},
+  aHall:{cond:'Within Railing',lwt:'',f:{a:'9',b:'8',c:'12',d:'0'}},
+  aLane:{cond:'Smooth',lwt:'2',f:{lane:'2'}},
+  dCargo:{cond:'Smooth',lwt:'2',f:{dlsc:'2',owc:''}},
+  dCar:{cond:'BKE',lwt:'17',f:{z1:'8',z2:'9',z3:'10',z4:'0',cargo:'4'}},
+  dMc:{cond:'Smooth',lwt:'2',f:{manual:'1',auto:'19',bam:'8'}},
+  dHall:{cond:'Smooth',lwt:'',f:{a:'9',b:'8',c:'12',d:'',bac:''}},
+  dLane:{cond:'Smooth',lwt:'2',f:{bac:'',lane:'2'}}
+};
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const pad=n=>String(n).padStart(2,'0');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clone=o=>JSON.parse(JSON.stringify(o));
+function nowHHMM(){const d=new Date();let h=d.getHours(),m=Math.round(d.getMinutes()/30)*30;if(m===60){m=0;h=(h+1)%24}return pad(h)+pad(m)}
+function todayISO(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function fmtDate(iso){if(!iso)return '';const[y,m,d]=iso.split('-');return d+' '+MON[+m-1]+' '+y}
+
+let state;
+function fresh(){return{map:clone(DEFAULT_MAP),sec:Object.fromEntries(ALL.map(s=>[s.id,{custom:'',...clone(EXAMPLE[s.id])}]))}}
+try{const raw=localStorage.getItem(KEY);state=raw?JSON.parse(raw):null}catch(e){state=null}
+if(!state||!state.sec||!state.map){state=fresh()}
+ALL.forEach(s=>{if(!state.sec[s.id])state.sec[s.id]={custom:'',...clone(EXAMPLE[s.id])};const st=state.sec[s.id];st.f=st.f||{};s.fields.forEach(([k])=>{if(st.f[k]==null)st.f[k]=''});if(st.custom==null)st.custom=''});
+const SHIFTS={am:['1030','1630','2100'],pm:['2230','0630','0900']};
+function mins(t){return +t.slice(0,2)*60+ +t.slice(2)}
+function nearest(list){const d=new Date();const now=d.getHours()*60+d.getMinutes();let best=list[0],bd=1e9;list.forEach(t=>{let diff=Math.abs(mins(t)-now);diff=Math.min(diff,1440-diff);if(diff<bd){bd=diff;best=t}});return best}
+const guess=nearest([...SHIFTS.am,...SHIFTS.pm]);
+state.shift=SHIFTS.am.includes(guess)?'am':'pm';state.time=guess;state.date=todayISO();
+function renderTime(){document.getElementById('shift').value=state.shift;document.getElementById('time').innerHTML=SHIFTS[state.shift].map(t=>'<option value="'+t+'"'+(t===state.time?' selected':'')+'>'+t+'hrs</option>').join('')}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({map:state.map,sec:state.sec}))}catch(e){}}
+
+const n=(id,k)=>parseInt(state.sec[id].f[k],10)||0;
+const zoneSum=id=>Z.reduce((a,[k])=>a+n(id,k),0);
+function totalOf(id){const s=BYID[id];if(s.lane)return n(id,'lane');return s.fields.reduce((a,[k])=>a+n(id,k),0)}
+// On/off switches per section: on fills full capacity, off sets the 'off' value
+const HT=(label,k,full,def)=>({label,keys:{[k]:full},off:'',def});
+const SEC_TOGGLES={
+  aMc:{omm:{label:'OMM',keys:{ommManual:'1',omm:'19'},off:'0',def:false},bikes2:{label:'Bikes 2',keys:{bikes2:'10'},off:'0',def:false}},
+  aHall:{a:HT('IACS(A)','a','9',true),b:HT('ABCS(B)','b','8',true),c:HT('ABCS(C)','c','12',true),d:HT('ABCS(D)','d','10',true)},
+  dHall:{a:HT('IACS(A)','a','9',true),b:HT('ABCS(B)','b','8',true),c:HT('ABCS(C)','c','12',true),d:HT('ABCS(D)','d','10',true),bac:HT('B@C','bac','15',false)}
+};
+function togs(id){const s=state.sec[id];s.tog=s.tog||{};return s.tog}
+function setTog(id,k,on){const def=SEC_TOGGLES[id][k];togs(id)[k]=on;Object.entries(def.keys).forEach(([f,full])=>{state.sec[id].f[f]=on?full:def.off})}
+function togOn(id,k){const t=togs(id);if(t[k]===undefined)setTog(id,k,SEC_TOGGLES[id][k].def);return !!t[k]}
+function hiddenKeys(id){const d=SEC_TOGGLES[id];if(!d)return[];const out=[];Object.keys(d).forEach(k=>{if(!togOn(id,k))out.push(...Object.keys(d[k].keys))});return out}
+// OMM and Bikes 2 are on for night shift 0630 and 0900, off for every other slot
+function autoToggles(){const on=state.shift==='pm'&&['0630','0900'].includes(state.time);Object.keys(SEC_TOGGLES.aMc).forEach(k=>{if(togOn('aMc',k)!==on)setTog('aMc',k,on)})}
+function enforceToggles(){Object.keys(SEC_TOGGLES).forEach(id=>{const d=SEC_TOGGLES[id];Object.keys(d).forEach(k=>{if(!togOn(id,k))Object.keys(d[k].keys).forEach(f=>{state.sec[id].f[f]=d[k].off})})})}
+function condOptions(sec){if(sec.id==='aCar')return ['Smooth',...LANDMARKS];if(sec.id==='aMc')return MC_LANDMARKS;if(sec.id==='aLane')return BUS_LANDMARKS;if(sec.id==='aCargo')return LORRY_LANDMARKS;if(sec.id==='dCar')return ['Smooth',...DCAR_LANDMARKS];if(sec.id==='dMc')return DMC_LANDMARKS;if(sec.id==='dCargo')return DLORRY_LANDMARKS;if(sec.id==='dLane')return DBUS_LANDMARKS;return sec.kind==='road'?['Smooth',...state.map.map(x=>x.c).filter(c=>c&&c!=='Smooth')]:HALL_CONDS}
+function carLwtInfo(){const i=LANDMARKS.indexOf(state.sec.aCar.cond);if(i<0)return null;const zs=zoneSum('aCar');const lanes=Math.min(40,Math.max(10,zs));return{zs,lanes,lwt:ARR_CAR_LWT[lanes][i],clamped:lanes!==zs}}
+function mcLwtInfo(){const i=MC_LANDMARKS.indexOf(state.sec.aMc.cond);if(i<0)return null;const c=totalOf('aMc');let r=ARR_MC_LWT.find(x=>c<x[0]);const over=!r;if(!r)r=ARR_MC_LWT[ARR_MC_LWT.length-1];return{c,band:r[0],lwt:r[1][MC_COL[i]],over}}
+function busLwtInfo(){const i=BUS_LANDMARKS.indexOf(state.sec.aLane.cond);if(i<0)return null;const c=n('aLane','lane');const k=Math.min(5,Math.max(1,c));return{c,k,lwt:ARR_BUS_LWT[k][BUS_COL[i]],clamped:k!==c}}
+function lorryLwtInfo(){const i=LORRY_LANDMARKS.indexOf(state.sec.aCargo.cond);if(i<0)return null;const c=totalOf('aCargo');let r=null;ARR_LORRY_LWT.forEach(x=>{if(c>=x[0])r=x});const low=!r;if(!r)r=ARR_LORRY_LWT[0];return{c,row:r[0],label:r[0]===9?'>8':String(r[0]),lwt:splitRange(r[1][LORRY_COL[i]],LORRY_PART[i]),low,exact:r[0]===c||(r[0]===9&&c>=9)}}
+function dcarLwtInfo(){const s=state.sec.dCar;const j=DCAR_LANDMARKS.indexOf(s.cond);if(j<0)return null;const p=['N','EP','SP'].includes(s.period)?s.period:'N';const zs=zoneSum('dCar');const lanes=Math.min(36,Math.max(10,zs));const usesPeriod=j>=2;const col=usesPeriod?2+(j-2)*3+['N','EP','SP'].indexOf(p):j;return{zs,lanes,p,usesPeriod,lwt:DEP_CAR_LWT[lanes][col],clamped:lanes!==zs}}
+function dmcLwtInfo(){const i=DMC_LANDMARKS.indexOf(state.sec.dMc.cond);if(i<0)return null;const c=totalOf('dMc');const r=DEP_MC_LWT.find(x=>c>=x[0]&&c<=x[1]);return{c,label:r[2],lwt:r[3][i],below:c<29,above:c>57}}
+function dlorryLwtInfo(){const i=DLORRY_LANDMARKS.indexOf(state.sec.dCargo.cond);if(i<0)return null;const c=totalOf('dCargo');let r=null;DEP_LORRY_LWT.forEach(x=>{if(c>=x[0])r=x});const low=!r;if(!r)r=DEP_LORRY_LWT[0];return{c,label:r[0]===9?'>8':String(r[0]),lwt:splitRange(r[1][i],[0,2]),low,exact:r[0]===c||(r[0]===9&&c>=9)}}
+function dbusLwtInfo(){const i=DBUS_LANDMARKS.indexOf(state.sec.dLane.cond);if(i<0)return null;const c=n('dLane','lane');const k=Math.min(5,Math.max(1,c));return{c,k,lwt:DEP_BUS_LWT[k][i],clamped:k!==c}}
+
+function sectionHTML(sec){
+  const s=state.sec[sec.id];const conds=condOptions(sec);
+  if(s.cond!=='__other'&&!conds.includes(s.cond)){s.custom=s.cond||'';s.cond='__other'}
+  const opts=conds.map(c=>'<option value="'+esc(c)+'"'+(s.cond===c?' selected':'')+'>'+esc((sec.id==='dCar'?DCAR_LABELS:LABELS)[c]||c)+'</option>').join('')+'<option value="__other"'+(s.cond==='__other'?' selected':'')+'>Other (type it)</option>';
+  const road=sec.kind==='road';
+  let h='<article class="sec" data-sec="'+sec.id+'"><header><h3>'+(sec.id[0]==='a'?'ARR ':'DEP ')+esc(sec.title)+'</h3><div class="tot" id="tot-'+sec.id+'"></div></header>';
+  h+='<div class="cond'+(road?'':' hall')+'"><label>'+(road?'Traffic':'Queue status')+'<select data-s="'+sec.id+'" data-role="cond">'+opts+'</select></label>';
+  const auto=(road&&s.cond==='Smooth')||(sec.id==='aCar'&&LANDMARKS.includes(s.cond))||(sec.id==='aMc'&&MC_LANDMARKS.includes(s.cond))||(sec.id==='aLane'&&BUS_LANDMARKS.includes(s.cond))||(sec.id==='aCargo'&&LORRY_LANDMARKS.includes(s.cond))||(sec.id==='dCar'&&DCAR_LANDMARKS.includes(s.cond))||(sec.id==='dMc'&&DMC_LANDMARKS.includes(s.cond))||(sec.id==='dCargo'&&DLORRY_LANDMARKS.includes(s.cond))||(sec.id==='dLane'&&DBUS_LANDMARKS.includes(s.cond));
+  if(road)h+='<label>LWT (mins)<input data-s="'+sec.id+'" data-role="lwt" inputmode="numeric" value="'+esc(s.lwt)+'"'+(auto?' readonly title="Calculated from the LWT table"':'')+'></label>';
+  if(sec.id==='aCar')h+='<p class="hint" id="carhint"></p>';
+  if(sec.id==='aMc')h+='<p class="hint" id="mchint"></p>';
+  if(sec.id==='aLane')h+='<p class="hint" id="bushint"></p>';
+  if(sec.id==='aCargo')h+='<p class="hint" id="lorryhint"></p>';
+  if(sec.id==='dMc')h+='<p class="hint" id="dmchint"></p>';
+  if(sec.id==='dCargo')h+='<p class="hint" id="dlorryhint"></p>';
+  if(sec.id==='dLane')h+='<p class="hint" id="dbushint"></p>';
+  if(sec.id==='dCar'){const p=s.period||'N';h+='<label class="custom">Period<select data-s="dCar" data-role="period">'+[['N','N: Normal'],['EP','EP: Evening Peak'],['SP','SP: Super Peak']].map(([v,t])=>'<option value="'+v+'"'+(p===v?' selected':'')+'>'+t+'</option>').join('')+'</select></label><p class="hint" id="dcarhint"></p>'}
+  if(s.cond==='__other')h+='<label class="custom">Condition text<input data-s="'+sec.id+'" data-role="custom" value="'+esc(s.custom)+'" placeholder="e.g. Woodlands Ave 3"></label>';
+  h+='</div>';
+  if(SEC_TOGGLES[sec.id]){const d=SEC_TOGGLES[sec.id];h+='<div class="toggles">'+Object.keys(d).map(t=>{const on=togOn(sec.id,t);return '<button type="button" class="tog" data-s="'+sec.id+'" data-tog="'+t+'" aria-pressed="'+on+'"><span class="sw"></span>'+d[t].label+': '+(on?'On':'Off')+'</button>'}).join('')+'</div>'}
+  h+='<div class="fields">';
+  const hid=hiddenKeys(sec.id);
+  sec.fields.forEach(([k,l,cap])=>{if(hid.includes(k))return;h+='<label class="fld"><span>'+esc(l)+'</span><span class="inp"><input data-s="'+sec.id+'" data-k="'+k+'" inputmode="numeric" placeholder="-" value="'+esc(s.f[k])+'"><em>'+(cap!=null?'/ '+cap:'')+'</em></span></label>'});
+  return h+'</div></article>';
+}
+function renderForm(){
+  document.getElementById('arr').innerHTML=SECTIONS.arr.map(sectionHTML).join('');
+  document.getElementById('dep').innerHTML=SECTIONS.dep.map(sectionHTML).join('');
+}
+function renderMap(){
+  document.getElementById('maplist').innerHTML=state.map.map((m,i)=>'<div class="maprow"><input data-mi="'+i+'" data-mf="c" value="'+esc(m.c)+'" aria-label="Condition name"><input data-mi="'+i+'" data-mf="l" inputmode="numeric" value="'+esc(m.l)+'" aria-label="LWT minutes" placeholder="mins"><button class="btn" type="button" data-mdel="'+i+'">Remove</button></div>').join('');
+}
+
+function build(){
+  const S=state.sec;
+  const v=(id,k)=>{const x=S[id].f[k];return(x===''||x==null)?'-':String(x)};
+  const c=id=>{const s=S[id];return s.cond==='__other'?(s.custom.trim()||'-'):s.cond};
+  const l=id=>{const x=S[id].lwt;return(x===''||x==null)?'-':String(x)};
+  const TRAIN='*Train: | Arr / Dep | Manual: 2 / 9, Eiacs: 3 / 3, Train Kiosk: 10 / 10 | Total Automated: 13 |';
+  const L=[
+    'Sitrep','',
+    'Woodlands Command Traffic Update @ '+state.time+'hrs',
+    fmtDate(state.date),'',
+    'ARR TRAFFIC','',
+    'Cargo: | '+c('aCargo')+' ; LWT: '+l('aCargo')+' mins | CCC: '+v('aCargo','ccc')+' / 6 |  OWC: '+v('aCargo','owc')+' / 4 | TOTAL: '+totalOf('aCargo')+' |','',
+    'Car: | '+c('aCar')+' ; LWT: '+l('aCar')+' mins | Z1: '+v('aCar','z1')+', Z2: '+v('aCar','z2')+', Z3: '+v('aCar','z3')+', Z4: '+v('aCar','z4')+' | TOTAL : '+zoneSum('aCar')+' / 40 | Arr Car-go: '+v('aCar','cargo')+' / 6 |  OWC AC: '+v('aCar','owcac')+' / 20 | TOTAL: '+totalOf('aCar')+' | ','',
+    'MC: | '+c('aMc')+' ; LWT: '+l('aMc')+' mins | Manual: '+v('aMc','manual')+' / 2 | OMM Manual: '+v('aMc','ommManual')+' / 1 | (Bikes1): '+v('aMc','bikes1')+' / 18 | (Bikes2): '+v('aMc','bikes2')+' / 10 | OMM: '+v('aMc','omm')+' / 19 | TOTAL : '+totalOf('aMc')+' |','',
+    'Bus Hall: | '+c('aHall')+' |  Automated: IACS(A): '+v('aHall','a')+' / 9 , ABCS(B): '+v('aHall','b')+' / 8 , ABCS(C) : '+v('aHall','c')+' / 12, ABCS(D): '+v('aHall','d')+' / 10 | TOTAL: '+totalOf('aHall')+' |','',
+    'Bus Lane: | '+c('aLane')+' ; LWT: '+l('aLane')+' mins | TOTAL : '+v('aLane','lane')+' / 5 | ','',
+    TRAIN,'',
+    'DEP TRAFFIC','',
+    'Cargo: | '+c('dCargo')+' ; LWT: '+l('dCargo')+' mins | DLSC: '+v('dCargo','dlsc')+' / 6 |  OWC: '+v('dCargo','owc')+' / 4 | TOTAL : '+totalOf('dCargo')+' | ','',
+    'Car: | '+c('dCar')+' ; LWT: '+l('dCar')+' mins | Z1: '+v('dCar','z1')+', Z2: '+v('dCar','z2')+', Z3: '+v('dCar','z3')+', Z4: '+v('dCar','z4')+' | TOTAL : '+zoneSum('dCar')+' / 36 | Dep Car-Go: '+v('dCar','cargo')+' / 6 | TOTAL : '+totalOf('dCar')+' | ','',
+    '*MC: | '+c('dMc')+' ; LWT: '+l('dMc')+' mins | Manual: '+v('dMc','manual')+' / 2 | Automated: '+v('dMc','auto')+' / 19 | B@M: '+v('dMc','bam')+' |  TOTAL : '+totalOf('dMc')+' |','',
+    '*Bus Hall: | '+c('dHall')+' | Automated: IACS(A): '+v('dHall','a')+' / 9, ABCS(B): '+v('dHall','b')+' / 8, ABCS(C): '+v('dHall','c')+' / 12, ABCS(D): '+v('dHall','d')+' / 10 | B@C: '+v('dHall','bac')+' / 15 | TOTAL: '+totalOf('dHall')+' |','',
+    '*Bus Lane: | '+c('dLane')+' ; LWT: '+l('dLane')+' mins | B@C: '+v('dLane','bac')+' | TOTAL : '+v('dLane','lane')+' / 5 | ','',
+    TRAIN
+  ];
+  return L.join('\n');
+}
+
+function update(){
+  enforceToggles();
+  ALL.forEach(sec=>{const s=state.sec[sec.id];if(sec.kind==='road'&&s.cond==='Smooth'){s.lwt='2';const el=document.querySelector('input[data-s="'+sec.id+'"][data-role="lwt"]');if(el)el.value='2'}});
+  const ci=carLwtInfo();const hint=document.getElementById('carhint');
+  if(ci){
+    state.sec.aCar.lwt=String(ci.lwt);
+    const li=document.querySelector('input[data-s="aCar"][data-role="lwt"]');if(li)li.value=state.sec.aCar.lwt;
+    if(hint){hint.textContent=ci.clamped?(ci.zs+' lanes is outside the table (10 to 40), so '+ci.lanes+' lanes was used: LWT '+ci.lwt+' mins.'):(ci.lanes+' lanes, tail at '+state.sec.aCar.cond+': LWT '+ci.lwt+' mins.');hint.classList.toggle('warnt',ci.clamped)}
+  } else if(hint){hint.textContent='Pick where the queue tail is (G3 to BSI EXIT) and LWT is read from the table using the Z1 to Z4 lanes open.';hint.classList.remove('warnt')}
+  const mi=mcLwtInfo();const mh=document.getElementById('mchint');
+  if(mi){
+    state.sec.aMc.lwt=String(mi.lwt);
+    const ml=document.querySelector('input[data-s="aMc"][data-role="lwt"]');if(ml)ml.value=state.sec.aMc.lwt;
+    if(mh){mh.textContent=mi.over?(mi.c+' counters is above the table, so the <81 row was used: LWT '+mi.lwt+' mins.'):(mi.c+' counters (row <'+mi.band+'), '+state.sec.aMc.cond+': LWT '+mi.lwt+' mins.');mh.classList.toggle('warnt',mi.over)}
+  } else if(mh){mh.textContent='Pick a landmark and LWT is read from the table using the MC total (incl. bikes).';mh.classList.remove('warnt')}
+  const bi=busLwtInfo();const bh=document.getElementById('bushint');
+  if(bi){
+    state.sec.aLane.lwt=String(bi.lwt);
+    const bl=document.querySelector('input[data-s="aLane"][data-role="lwt"]');if(bl)bl.value=state.sec.aLane.lwt;
+    if(bh){bh.textContent=bi.clamped?(bi.c+' counters is outside the table (1 to 5), so the '+bi.k+'-counter row was used: LWT '+bi.lwt+' mins.'):(bi.c+' counters, '+state.sec.aLane.cond+': LWT '+bi.lwt+' mins.');bh.classList.toggle('warnt',bi.clamped)}
+  } else if(bh){bh.textContent='Pick a landmark and LWT is read from the table using the bus lane counters.';bh.classList.remove('warnt')}
+  const li2=lorryLwtInfo();const lh=document.getElementById('lorryhint');
+  if(li2){
+    state.sec.aCargo.lwt=li2.lwt;
+    const ll=document.querySelector('input[data-s="aCargo"][data-role="lwt"]');if(ll)ll.value=li2.lwt;
+    if(lh){lh.textContent=li2.low?(li2.c+' counters is below the table, so the 1-counter row was used: LWT '+li2.lwt+' mins.'):(li2.c+' counters'+(li2.exact?'':' (no row for '+li2.c+', using the '+li2.label+' row)')+', '+state.sec.aCargo.cond+': LWT '+li2.lwt+' mins.');lh.classList.toggle('warnt',li2.low)}
+  } else if(lh){lh.textContent='Pick a landmark and LWT is read from the table using the Cargo total (CCC + OWC).';lh.classList.remove('warnt')}
+  const di=dcarLwtInfo();const dh=document.getElementById('dcarhint');
+  if(di){
+    state.sec.dCar.lwt=String(di.lwt);
+    const dl=document.querySelector('input[data-s="dCar"][data-role="lwt"]');if(dl)dl.value=state.sec.dCar.lwt;
+    const tag=state.sec.dCar.cond+(di.usesPeriod?' ('+di.p+')':'');
+    if(dh){dh.textContent=di.clamped?(di.zs+' lanes is outside the table (10 to 36), so '+di.lanes+' lanes was used, '+tag+': LWT '+di.lwt+' mins.'):(di.lanes+' lanes, tail at '+tag+': LWT '+di.lwt+' mins.');dh.classList.toggle('warnt',di.clamped)}
+  } else if(dh){dh.textContent='Pick where the queue tail is and the period, and LWT is read from the table using the Z1 to Z4 lanes open.';dh.classList.remove('warnt')}
+  const dm=dmcLwtInfo();const dmh=document.getElementById('dmchint');
+  if(dm){
+    state.sec.dMc.lwt=String(dm.lwt);
+    const dml=document.querySelector('input[data-s="dMc"][data-role="lwt"]');if(dml)dml.value=String(dm.lwt);
+    if(dmh){const edge=dm.below?' is below the table, so the 29 row was used':dm.above?' is above the table, so the 57 row was used':' (row '+dm.label+')';dmh.textContent=dm.c+' counters'+edge+', '+state.sec.dMc.cond+': LWT '+dm.lwt+' mins.';dmh.classList.toggle('warnt',dm.below||dm.above)}
+  } else if(dmh){dmh.textContent='Pick a landmark and LWT is read from the table using the MC total (incl. bikes).';dmh.classList.remove('warnt')}
+  const dlo=dlorryLwtInfo();const dloh=document.getElementById('dlorryhint');
+  if(dlo){
+    state.sec.dCargo.lwt=dlo.lwt;
+    const dlol=document.querySelector('input[data-s="dCargo"][data-role="lwt"]');if(dlol)dlol.value=dlo.lwt;
+    if(dloh){dloh.textContent=dlo.low?(dlo.c+' counters is below the table, so the 1-counter row was used: LWT '+dlo.lwt+' mins.'):(dlo.c+' counters'+(dlo.exact?'':' (no row for '+dlo.c+', using the '+dlo.label+' row)')+', '+state.sec.dCargo.cond+': LWT '+dlo.lwt+' mins.');dloh.classList.toggle('warnt',dlo.low)}
+  } else if(dloh){dloh.textContent='Pick a landmark and LWT is read from the table using the Cargo total (DLSC + OWC).';dloh.classList.remove('warnt')}
+  const dbi=dbusLwtInfo();const dbh=document.getElementById('dbushint');
+  if(dbi){
+    state.sec.dLane.lwt=String(dbi.lwt);
+    const dbl=document.querySelector('input[data-s="dLane"][data-role="lwt"]');if(dbl)dbl.value=state.sec.dLane.lwt;
+    if(dbh){dbh.textContent=dbi.clamped?(dbi.c+' counters is outside the table (1 to 5), so the '+dbi.k+'-counter row was used: LWT '+dbi.lwt+' mins.'):(dbi.c+' counters, '+state.sec.dLane.cond+': LWT '+dbi.lwt+' mins.');dbh.classList.toggle('warnt',dbi.clamped)}
+  } else if(dbh){dbh.textContent='Pick a landmark and LWT is read from the table using the bus lane counters.';dbh.classList.remove('warnt')}
+  document.getElementById('out').value=build();
+  ALL.forEach(sec=>{
+    const el=document.getElementById('tot-'+sec.id);if(!el)return;
+    let over=false;
+    sec.fields.forEach(([k,,cap])=>{const inp=document.querySelector('input[data-s="'+sec.id+'"][data-k="'+k+'"]');const bad=cap!=null&&n(sec.id,k)>cap;if(inp)inp.classList.toggle('over',bad);over=over||bad});
+    let t;
+    if(sec.lane)t='<b>'+n(sec.id,'lane')+'</b> / 5 open';
+    else if(sec.zones){const zs=zoneSum(sec.id);const zb=zs>sec.zones;over=over||zb;t='Zones <span class="'+(zb?'bad':'')+'">'+zs+' / '+sec.zones+'</span><br>Total <b>'+totalOf(sec.id)+'</b>'}
+    else t='Total <b>'+totalOf(sec.id)+'</b>';
+    el.innerHTML=t;el.classList.toggle('bad',over);
+  });
+  save();
+}
+
+const form=document.querySelector('.wrap');
+form.addEventListener('input',e=>{
+  const t=e.target,id=t.dataset.s;
+  if(id&&t.dataset.k){const clean=t.value.replace(/\D/g,'').slice(0,3);if(clean!==t.value)t.value=clean;state.sec[id].f[t.dataset.k]=clean;update()}
+  else if(id&&t.dataset.role==='lwt'){const clean=t.value.replace(/\D/g,'').slice(0,3);if(clean!==t.value)t.value=clean;state.sec[id].lwt=clean;update()}
+  else if(id&&t.dataset.role==='custom'){state.sec[id].custom=t.value;update()}
+  else if(t.id==='shift'){state.shift=t.value;state.time=nearest(SHIFTS[state.shift]);renderTime();autoToggles();renderForm();update()}
+  else if(t.id==='time'){const clean=t.value.replace(/\D/g,'').slice(0,4);if(clean!==t.value)t.value=clean;state.time=clean;autoToggles();renderForm();update()}
+  else if(t.id==='date'){state.date=t.value;update()}
+  else if(t.dataset.mi!=null){const m=state.map[+t.dataset.mi];if(t.dataset.mf==='l'){const c=t.value.replace(/\D/g,'').slice(0,3);if(c!==t.value)t.value=c;m.l=c}else m.c=t.value;save()}
+});
+form.addEventListener('change',e=>{
+  const t=e.target,id=t.dataset.s;
+  if(id&&t.dataset.role==='cond'){
+    const s=state.sec[id];const val=t.value;
+    if(val==='__other'){if(!s.custom)s.custom=''}
+    s.cond=val;
+    if(BYID[id].kind==='road'){const m=state.map.find(x=>x.c===val);if(m&&m.l!=='')s.lwt=m.l}
+    renderForm();update();
+  } else if(id&&t.dataset.role==='period'){state.sec[id].period=t.value;update()
+  } else if(t.dataset.mi!=null){renderForm();update()}
+});
+form.addEventListener('click',e=>{
+  const t=e.target;
+  const tg=t.closest&&t.closest('[data-tog]');
+  if(tg){const id=tg.dataset.s,k=tg.dataset.tog;setTog(id,k,!togOn(id,k));renderForm();update();return}
+  if(t.dataset.mdel!=null){state.map.splice(+t.dataset.mdel,1);renderMap();renderForm();update()}
+});
+document.getElementById('clear').onclick=()=>{ALL.forEach(s=>{const st=state.sec[s.id];s.fields.forEach(([k])=>st.f[k]='')});renderForm();update()};
+document.getElementById('smooth').onclick=()=>{ALL.forEach(s=>{const st=state.sec[s.id];st.cond='Smooth';if(s.kind==='road')st.lwt='2'});renderForm();update()};
+
+function flash(msg){const s=document.getElementById('status');s.textContent=msg;clearTimeout(flash.t);flash.t=setTimeout(()=>s.textContent='',2200);const b2=document.getElementById('copy2');b2.textContent=msg;clearTimeout(flash.u);flash.u=setTimeout(()=>b2.textContent='Copy sitrep',2200)}
+async function copy(){
+  const text=build();
+  try{await navigator.clipboard.writeText(text);flash('Copied');return}catch(e){}
+  const ta=document.getElementById('out');ta.focus();ta.select();ta.setSelectionRange(0,text.length);
+  try{flash(document.execCommand('copy')?'Copied':'Select the text and copy it')}catch(e){flash('Select the text and copy it')}
+}
+document.getElementById('copy').onclick=copy;
+document.getElementById('copy2').onclick=copy;
+
+renderTime();
+document.getElementById('date').value=state.date;
+autoToggles();renderForm();update();
+})();
+</script>
+</body>
+</html>
